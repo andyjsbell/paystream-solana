@@ -26,6 +26,19 @@ pub mod utils {
 #[program]
 pub mod paystream {
     use super::*;
+
+    /// Register the user
+    pub fn register(
+        ctx: Context<Register>,
+        bump: u8,
+    ) -> ProgramResult {
+        ctx.accounts.user.authority = *ctx.accounts.authority.key;
+        ctx.accounts.user.bump = bump;
+        Ok(())
+    }
+
+    /// Create a stream for payment
+    /// The account needs to be funded with the amount to be streamed
     pub fn create(
         ctx: Context<Create>,
         amount_in_lamports: u64,
@@ -33,6 +46,8 @@ pub mod paystream {
     ) -> ProgramResult {
         // Get the stream account
         let stream = &mut ctx.accounts.stream;
+        let user = &mut ctx.accounts.user;
+
         // Check that we have enough lamports in the stream account to continue
         let dest_info = &mut stream.to_account_info();
         if **dest_info.lamports.borrow() < amount_in_lamports {
@@ -44,12 +59,15 @@ pub mod paystream {
         stream.amount_in_lamports = amount_in_lamports;
         stream.remaining_lamports = amount_in_lamports;
         stream.time_in_seconds = time_in_seconds;
-        stream.payer = *ctx.accounts.payer.key;
+        stream.payer = user.key();
         stream.receiver = *ctx.accounts.receiver.key;
+
+        user.streams.push(stream.key());
 
         Ok(())
     }
 
+    /// The payer or receiver can instruct to withdraw to the receiver
     pub fn withdraw(ctx: Context<Withdraw>, amount_in_lamports: u64) -> ProgramResult {
         // Locate the stream account
         let stream = &mut ctx.accounts.stream;
@@ -86,6 +104,8 @@ pub mod paystream {
         Ok(())
     }
 
+    /// The payer or receiver can cancel, what is owed is sent to the recipient
+    /// and what is left is credited to the payer
     pub fn cancel(ctx: Context<Cancel>) -> ProgramResult {
         // Obtain the stream
         let stream = &mut ctx.accounts.stream;
@@ -94,6 +114,7 @@ pub mod paystream {
             return Err(ProgramError::InsufficientFunds);
         }
 
+        //TODO pay what is owed to the recipient and the credit the payer
         let amount_to_return = stream.remaining_lamports;
         stream.remaining_lamports = 0;
         utils::transfer(
@@ -107,10 +128,28 @@ pub mod paystream {
 }
 
 #[derive(Accounts)]
+#[instruction(bump: u8)]
+pub struct Register<'info> {
+    #[account(
+        init,
+        seeds = [authority.key().as_ref()],
+        bump = bump,
+        payer = authority,
+        space = 320,
+    )]
+    pub user: Account<'info, User>,
+    #[account(signer)]
+    pub authority: AccountInfo<'info>,
+    pub system_program: AccountInfo<'info>,
+}
+
+#[derive(Accounts)]
 pub struct Create<'info> {
-    #[account(init, payer = payer, space = 8 + 32 + 32 + 8 + 8 + 8 + 8)]
+    #[account(init, payer = user, space = 8 + 32 + 32 + 8 + 8 + 8 + 8)]
     pub stream: Account<'info, Stream>,
-    pub payer: AccountInfo<'info>,
+    #[account(mut)]
+    //TODO this is the same thing
+    pub user: Account<'info, User>,
     pub receiver: AccountInfo<'info>,
     pub system_program: AccountInfo<'info>,
 }
@@ -123,8 +162,8 @@ pub struct Withdraw<'info> {
     #[account(
         mut,
         constraint =
-            stream.payer == *payer.to_account_info().key ||
-            stream.receiver == *receiver.to_account_info().key,
+            stream.payer == payer.key() ||
+            stream.receiver == receiver.key(),
     )]
     pub stream: Account<'info, Stream>,
 }
@@ -141,6 +180,13 @@ pub struct Cancel<'info> {
             stream.receiver == *receiver.to_account_info().key,
     )]
     pub stream: Account<'info, Stream>,
+}
+
+#[account]
+pub struct User {
+    authority: Pubkey,
+    streams: Vec<Pubkey>,
+    bump: u8,
 }
 
 #[account]
