@@ -52,13 +52,14 @@ describe('stream payments', () => {
     const program = anchor.workspace.Paystream;
     const provider = anchor.Provider.local();
     const authority = provider.wallet.publicKey;
+    const name = "Lord Byron";
 
     const [user, bump] = await anchor.web3.PublicKey.findProgramAddress(
         [authority.toBuffer()],
         program.programId
     );
 
-    await program.rpc.register(bump, {
+    await program.rpc.register(bump, name, {
       accounts: {
         user,
         authority,

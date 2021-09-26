@@ -31,9 +31,11 @@ pub mod paystream {
     pub fn register(
         ctx: Context<Register>,
         bump: u8,
+        name: String,
     ) -> ProgramResult {
         ctx.accounts.user.authority = *ctx.accounts.authority.key;
         ctx.accounts.user.bump = bump;
+        ctx.accounts.user.name = name;
         Ok(())
     }
 
@@ -184,6 +186,7 @@ pub struct Cancel<'info> {
 
 #[account]
 pub struct User {
+    name: String,
     authority: Pubkey,
     streams: Vec<Pubkey>,
     bump: u8,
