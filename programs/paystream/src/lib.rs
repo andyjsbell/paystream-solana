@@ -61,7 +61,7 @@ pub mod paystream {
         stream.amount_in_lamports = amount_in_lamports;
         stream.remaining_lamports = amount_in_lamports;
         stream.time_in_seconds = time_in_seconds;
-        stream.payer = user.key();
+        stream.user = user.key();
         stream.receiver = *ctx.accounts.receiver.key;
 
         user.streams.push(stream.key());
@@ -121,7 +121,7 @@ pub mod paystream {
         stream.remaining_lamports = 0;
         utils::transfer(
             &stream.to_account_info(),
-            &ctx.accounts.payer,
+            &ctx.accounts.user,
             amount_to_return,
         )?;
 
@@ -147,10 +147,11 @@ pub struct Register<'info> {
 
 #[derive(Accounts)]
 pub struct Create<'info> {
-    #[account(init, payer = user, space = 8 + 32 + 32 + 8 + 8 + 8 + 8)]
+    #[account(init, payer = authority, space = 8 + 32 + 32 + 8 + 8 + 8 + 8)]
     pub stream: Account<'info, Stream>,
+    #[account(signer)]
+    pub authority: AccountInfo<'info>,
     #[account(mut)]
-    //TODO this is the same thing
     pub user: Account<'info, User>,
     pub receiver: AccountInfo<'info>,
     pub system_program: AccountInfo<'info>,
@@ -159,12 +160,12 @@ pub struct Create<'info> {
 #[derive(Accounts)]
 pub struct Withdraw<'info> {
     #[account(mut)]
-    pub payer: AccountInfo<'info>,
+    pub user: AccountInfo<'info>,
     pub receiver: AccountInfo<'info>,
     #[account(
         mut,
         constraint =
-            stream.payer == payer.key() ||
+            stream.user == user.to_account_info().key() ||
             stream.receiver == receiver.key(),
     )]
     pub stream: Account<'info, Stream>,
@@ -173,13 +174,13 @@ pub struct Withdraw<'info> {
 #[derive(Accounts)]
 pub struct Cancel<'info> {
     #[account(mut)]
-    pub payer: AccountInfo<'info>,
+    pub user: AccountInfo<'info>,
     pub receiver: AccountInfo<'info>,
     #[account(
         mut,
         constraint =
-            stream.payer == *payer.to_account_info().key ||
-            stream.receiver == *receiver.to_account_info().key,
+            stream.user == user.key() ||
+            stream.receiver == receiver.key(),
     )]
     pub stream: Account<'info, Stream>,
 }
@@ -194,7 +195,7 @@ pub struct User {
 
 #[account]
 pub struct Stream {
-    payer: Pubkey,
+    user: Pubkey,
     receiver: Pubkey,
     amount_in_lamports: u64,
     remaining_lamports: u64,

@@ -102,7 +102,7 @@ describe('stream payments', () => {
       accounts: {
         user,
         stream: stream.publicKey,
-        payer: provider.wallet.publicKey,
+        authority: provider.wallet.publicKey,
         receiver: receiver.publicKey,
         systemProgram: SystemProgram.programId,
       },
@@ -113,7 +113,7 @@ describe('stream payments', () => {
     const new_stream = await program.account.stream.fetch(stream.publicKey);
 
     // Check that we have added this stream to our account
-    assert.ok(current_user.streams[0].toBase58() == stream.publicKey.toBase58());
+    assert.ok(current_user.streams[0].toBase58() === stream.publicKey.toBase58());
     // Check some basic values on the account creation
     assert.ok(new anchor.BN(lamports).eq(new_stream.amountInLamports));
     assert.ok(new anchor.BN(lamports).eq(new_stream.remainingLamports));
