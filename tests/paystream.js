@@ -88,16 +88,7 @@ describe('stream payments', () => {
     // Fund account
     await fundAccountFromWallet(stream.publicKey, lamports);
 
-    console.log(`calling create(
-      ${lamports}, 
-      ${time_in_seconds}, 
-      ${user}, 
-      ${stream.publicKey},
-      ${provider.wallet.publicKey},
-      ${receiver.publicKey},
-      ${SystemProgram.programId})`);
-
-    // Create the stream
+     // Create the stream
     await program.rpc.create(new anchor.BN(lamports), new anchor.BN(time_in_seconds), {
       accounts: {
         user,
@@ -130,8 +121,6 @@ describe('stream payments', () => {
     const user = await program.account.user.fetch(pubKey);
     const stream = await program.account.stream.fetch(user.streams[0]);
 
-    console.log("user:", user);
-    console.log("stream:", stream);
 
     // await program.rpc.withdraw(new anchor.BN(lamports), {
     //   accounts: {
