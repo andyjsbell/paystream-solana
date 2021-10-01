@@ -159,13 +159,10 @@ pub struct Create<'info> {
 
 #[derive(Accounts)]
 pub struct Withdraw<'info> {
-    #[account(mut)]
-    pub user: AccountInfo<'info>,
     pub receiver: AccountInfo<'info>,
     #[account(
         mut,
         constraint =
-            stream.user == user.to_account_info().key() ||
             stream.receiver == receiver.key(),
     )]
     pub stream: Account<'info, Stream>,

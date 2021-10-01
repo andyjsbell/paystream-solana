@@ -121,14 +121,15 @@ describe('stream payments', () => {
     const user = await program.account.user.fetch(pubKey);
     const stream = await program.account.stream.fetch(user.streams[0]);
 
+    console.log(user.authority);
+    console.log(stream.receiver);
 
-    // await program.rpc.withdraw(new anchor.BN(lamports), {
-    //   accounts: {
-    //     payer: user.authority,
-    //     stream,
-    //     receiver: stream.receiver.toBase58(),
-    //   },
-    //   signers: [],
-    // });
+    await program.rpc.withdraw(new anchor.BN(lamports), {
+      accounts: {
+        stream,
+        receiver: stream.receiver.toBase58(),
+      },
+      signers: [],
+    });
   });
 });
