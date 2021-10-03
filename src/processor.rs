@@ -162,10 +162,16 @@ impl Processor {
             amount
         };
 
-        // msg!("[Paystream] Withdrawal of {} requested", amount);
+        msg!("[Paystream] Withdrawal of {} requested", amount);
+         
+        stream_data.amount -= amount;
+        stream_data.serialize(&mut &mut stream_account.data.borrow_mut()[..])?;
+
+        **stream_account.try_borrow_mut_lamports()? -= amount;
+        **payee_account.try_borrow_mut_lamports()? += amount;
+        
         // let instruction =
         //     system_instruction::transfer(&stream_account.key, &payee_account.key, amount);
-        //
         // invoke(
         //     &instruction,
         //     &[
@@ -174,10 +180,7 @@ impl Processor {
         //         stream_account.clone(),
         //     ],
         // )?;
-
-        // stream_data.amount -= amount;
-        // stream_data.serialize(&mut &mut stream_account.data.borrow_mut()[..])?;
-
+        
         msg!(
             "[Paystream] Withdrawal of {} from stream account: {:?}",
             amount,
@@ -209,63 +212,58 @@ impl Processor {
             return Err(ProgramError::MissingRequiredSignature);
         }
 
-        match StreamAccount::try_from_slice(&stream_account.data.borrow()) {
-            Ok(mut stream_data) => {
-                if !stream_data.is_initialized() {
-                    msg!("[Paystream] Stream is not initialised");
-                    return Err(ProgramError::UninitializedAccount);
-                }
+        // Initialise the stream with its initial state
+        let mut stream_data = StreamAccount::try_from_slice(*stream_account.data.borrow())?;
 
-                if stream_data.payee_pubkey != *payee_account.key {
-                    msg!("[Paystream] Signer doesn't match payee");
-                    return Err(ProgramError::from(PaystreamError::InvalidPayee));
-                }
-
-                if stream_data.payer_pubkey != *payer_account.key {
-                    msg!("[Paystream] Payer doesn't match");
-                    return Err(ProgramError::from(PaystreamError::InvalidPayer));
-                }
-
-                if stream_data.status != StreamStatus::Active as u8 {
-                    msg!("[Paystream] Stream is not active");
-                    return Err(ProgramError::from(PaystreamError::NotActive));
-                }
-
-                // Credit amount remaining back to payer
-                // TODO clean up the rental dust
-                msg!("[Paystream] Cancel requested");
-                let instruction =
-                    system_instruction::transfer(&stream_account.key,
-                                                 payer_account.key,
-                                                 stream_data.amount);
-                invoke(
-                    &instruction,
-                    &[
-                        system_account.clone(),
-                        payer_account.clone(),
-                        stream_account.clone(),
-                    ],
-                )?;
-
-                stream_data.amount = 0;
-                stream_data.status = StreamStatus::Terminated as u8;
-                stream_data.serialize(&mut &mut stream_account.data.borrow_mut()[..])?;
-
-                msg!(
-                    "[Paystream] Cancelled stream account: {:?}",
-                    stream_data
-                );
-
-                Ok(())
-            }
-            Err(_) => {
-                msg!(
-                    "[Paystream] Stream data size is incorrect: {}",
-                    stream_account.try_data_len()?
-                );
-
-                return Err(ProgramError::InvalidAccountData);
-            }
+        if !stream_data.is_initialized() {
+            msg!("[Paystream] Stream is not initialised");
+            return Err(ProgramError::UninitializedAccount);
         }
+
+        if stream_data.payee_pubkey != *payee_account.key {
+            msg!("[Paystream] Signer doesn't match payee");
+            return Err(ProgramError::from(PaystreamError::InvalidPayee));
+        }
+
+        if stream_data.payer_pubkey != *payer_account.key {
+            msg!("[Paystream] Payer doesn't match");
+            return Err(ProgramError::from(PaystreamError::InvalidPayer));
+        }
+
+        if stream_data.status != StreamStatus::Active as u8 {
+            msg!("[Paystream] Stream is not active");
+            return Err(ProgramError::from(PaystreamError::NotActive));
+        }
+
+        // Credit amount remaining back to payer
+        // TODO clean up the rental dust
+        msg!("[Paystream] Cancel requested");
+        
+        **stream_account.try_borrow_mut_lamports()? -= stream_data.amount;
+        **payer_account.try_borrow_mut_lamports()? += stream_data.amount;
+
+        // let instruction =
+        //     system_instruction::transfer(&stream_account.key,
+        //                                     payer_account.key,
+        //                                     stream_data.amount);
+        // invoke(
+        //     &instruction,
+        //     &[
+        //         system_account.clone(),
+        //         payer_account.clone(),
+        //         stream_account.clone(),
+        //     ],
+        // )?;
+
+        stream_data.amount = 0;
+        stream_data.status = StreamStatus::Terminated as u8;
+        stream_data.serialize(&mut &mut stream_account.data.borrow_mut()[..])?;
+
+        msg!(
+            "[Paystream] Cancelled stream account: {:?}",
+            stream_data
+        );
+
+        Ok(())
     }
 }

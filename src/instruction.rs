@@ -112,3 +112,25 @@ pub fn withdrawal(
         data,
     })
 }
+
+pub fn cancel(
+    program_id: Pubkey,
+    instruction_data: PaystreamInstruction,
+    stream_account_key: Pubkey,
+    payee_account_key: Pubkey,
+    payer_account_key: Pubkey,
+) -> Result<Instruction, ProgramError> {
+    let data = instruction_data.try_to_vec().unwrap();
+    let accounts = vec![
+        AccountMeta::new(stream_account_key, true),
+        AccountMeta::new(payee_account_key, true),
+        AccountMeta::new(payer_account_key, false),
+        AccountMeta::new_readonly(solana_program::system_program::id(), false),
+    ];
+
+    Ok(Instruction{
+        program_id,
+        accounts,
+        data,
+    })
+}
