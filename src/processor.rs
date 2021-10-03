@@ -6,7 +6,7 @@ use solana_program::{
     program_error::ProgramError,
     program_pack::IsInitialized,
     pubkey::Pubkey,
-    sysvar::{rent::Rent, Sysvar},
+    sysvar::{clock::Clock, rent::Rent, Sysvar},
 };
 
 use crate::{
@@ -78,6 +78,9 @@ impl Processor {
             return Err(ProgramError::AccountNotRentExempt);
         }
 
+        let clock_info = next_account_info(accounts_iter)?;
+        let clock = &Clock::from_account_info(clock_info)?;
+
         // Check that the stream has the correct balance
         let minimum_balance = solana_rent.minimum_balance(stream_account.data_len());
         msg!("[Paystream] minimum rent {}", minimum_balance);
@@ -104,7 +107,9 @@ impl Processor {
         stream_data.status = StreamStatus::Active as u8;
         stream_data.payee_pubkey = payee_pubkey;
         stream_data.payer_pubkey = payer_pubkey;
-        stream_data.amount = amount;
+        stream_data.amount_in_lamports = amount;
+        stream_data.remaining_lamports = amount;
+        stream_data.start_timestamp_in_seconds = clock.unix_timestamp as u64;
         stream_data.duration_in_seconds = duration_in_seconds;
 
         stream_data
@@ -119,7 +124,8 @@ impl Processor {
         let accounts_iter = &mut accounts.iter();
         let stream_account = next_account_info(accounts_iter)?;
         let payee_account = next_account_info(accounts_iter)?;
-        let system_account = next_account_info(accounts_iter)?;
+        let clock_info = next_account_info(accounts_iter)?;
+        let clock = &Clock::from_account_info(clock_info)?;
 
         if stream_account.owner != program_id {
             msg!("[Paystream] Stream account is not owned by program");
@@ -154,15 +160,23 @@ impl Processor {
             return Err(ProgramError::from(PaystreamError::NotActive));
         }
 
-        let amount = if amount > stream_data.amount {
-            stream_data.amount
+        // Calculate what *can* be withdrawn
+        // TODO Check that this won't panic on 0
+        let lamport_per_second = stream_data.amount_in_lamports / stream_data.duration_in_seconds;
+        // How much time has passed
+        let time_passed = clock.unix_timestamp as u64 - stream_data.start_timestamp_in_seconds;
+        msg!("[Paystream] {} seconds have passed", time_passed);
+        // TODO Check that this won't overflow
+        let maximum_amount = lamport_per_second * time_passed;
+        let amount = if amount > maximum_amount {
+            maximum_amount
         } else {
             amount
         };
 
         msg!("[Paystream] Withdrawal of {} requested", amount);
          
-        stream_data.amount -= amount;
+        stream_data.remaining_lamports -= amount;
         stream_data.serialize(&mut &mut stream_account.data.borrow_mut()[..])?;
 
         **stream_account.try_borrow_mut_lamports()? -= amount;
@@ -193,8 +207,7 @@ impl Processor {
         let stream_account = next_account_info(accounts_iter)?;
         let payee_account = next_account_info(accounts_iter)?;
         let payer_account = next_account_info(accounts_iter)?;
-        let system_account = next_account_info(accounts_iter)?;
-
+        
         if stream_account.owner != program_id {
             msg!("[Paystream] Stream account is not owned by program");
             return Err(ProgramError::IncorrectProgramId);
@@ -237,8 +250,8 @@ impl Processor {
         // TODO clean up the rental dust
         msg!("[Paystream] Cancel requested");
         
-        **stream_account.try_borrow_mut_lamports()? -= stream_data.amount;
-        **payer_account.try_borrow_mut_lamports()? += stream_data.amount;
+        **stream_account.try_borrow_mut_lamports()? -= stream_data.remaining_lamports;
+        **payer_account.try_borrow_mut_lamports()? += stream_data.remaining_lamports;
 
         // let instruction =
         //     system_instruction::transfer(&stream_account.key,
@@ -253,7 +266,7 @@ impl Processor {
         //     ],
         // )?;
 
-        stream_data.amount = 0;
+        stream_data.remaining_lamports = 0;
         stream_data.status = StreamStatus::Terminated as u8;
         stream_data.serialize(&mut &mut stream_account.data.borrow_mut()[..])?;
 

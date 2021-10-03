@@ -11,6 +11,7 @@ pub enum PaystreamInstruction {
     /// Accounts expected:
     /// 0. `[writable]` The stream account created to manage state across 2 parties; owned by program id.
     /// 1. `[]` Sysvar Rent Account to validate rent exemption (SYSVAR_RENT_PUBKEY)
+    /// 2. `[]` Clock
     Create {
         payee_pubkey: Pubkey,
         payer_pubkey: Pubkey,
@@ -23,7 +24,6 @@ pub enum PaystreamInstruction {
     /// Accounts expected:
     /// 0. `[writable]` The stream account created to manage state across 2 parties; owned by program id.
     /// 1. `[signer]` Payee account (keypair)
-    /// 2. `[]` System program account
     Withdrawal { amount: u64 },
 
     /// Cancel stream payment
@@ -31,7 +31,6 @@ pub enum PaystreamInstruction {
     /// 0. `[writable]` The stream account created to manage state across 2 parties; owned by program id.
     /// 1. `[signer]` Payee account (keypair)
     /// 2. `[]` Payer (Owner) account (public key)
-    /// 3. `[]` System program account
     Cancel {},
 }
 
@@ -84,6 +83,7 @@ pub fn create(
     let accounts = vec![
         AccountMeta::new(stream_account_key, true),
         AccountMeta::new_readonly(sysvar::rent::id(), false),
+        AccountMeta::new(sysvar::clock::id(), false),
     ];
 
     Ok(Instruction {
@@ -103,7 +103,7 @@ pub fn withdrawal(
     let accounts = vec![
         AccountMeta::new(stream_account_key, true),
         AccountMeta::new(payee_account_key, true),
-        AccountMeta::new_readonly(solana_program::system_program::id(), false),
+        AccountMeta::new(sysvar::clock::id(), false),
     ];
 
     Ok(Instruction{
@@ -125,7 +125,6 @@ pub fn cancel(
         AccountMeta::new(stream_account_key, true),
         AccountMeta::new(payee_account_key, true),
         AccountMeta::new(payer_account_key, false),
-        AccountMeta::new_readonly(solana_program::system_program::id(), false),
     ];
 
     Ok(Instruction{

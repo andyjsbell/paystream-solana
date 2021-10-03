@@ -10,8 +10,10 @@ pub struct StreamAccount {
     pub status: u8,
     pub payee_pubkey: Pubkey,
     pub payer_pubkey: Pubkey,
-    pub amount: u64,
+    pub amount_in_lamports: u64,
+    pub remaining_lamports: u64,
     pub duration_in_seconds: u64,
+    pub start_timestamp_in_seconds: u64,
 }
 
 impl Sealed for StreamAccount {}

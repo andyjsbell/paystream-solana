@@ -1,5 +1,6 @@
 use paystream::entrypoint::process_instruction;
 use borsh::BorshDeserialize;
+use solana_program::clock::{SLOT_MS, DEFAULT_S_PER_SLOT};
 use solana_program_test::*;
 use solana_sdk::{
     account::Account,
@@ -37,7 +38,7 @@ fn add_stream_account(program_id: Pubkey, program_test: &mut ProgramTest, stream
         stream_key.pubkey(),
         Account {
             lamports: amount + rent_exemption,
-            data: vec![0_u8; 81],
+            data: vec![0_u8; 97],
             owner: program_id,
             ..Account::default()
         },
@@ -221,41 +222,50 @@ async fn should_create_stream() {
     banks_client.process_transaction(transaction).await.unwrap();
 
     let stream = get_stream_account(&mut banks_client, &stream_key).await;
-    assert_eq!(stream.amount, amount);
+    assert_eq!(stream.remaining_lamports, amount);
 }
 
 #[tokio::test]
 async fn should_withdrawal_from_stream() {
     // Create program test
     let (program_id, mut program_test, payer_key, payee_key) = create_program_test();
+
     let stream_key = Keypair::new();
     let amount = 1000;
     add_stream_account(program_id, &mut program_test, &stream_key, amount);
     
-    let (mut banks_client, payer, recent_blockhash) = program_test.start().await;
+    let mut ctx = program_test.start_with_context().await;
+
+    // let (mut banks_client, payer, recent_blockhash) = program_test.start().await;
 
     let transaction = create_stream_transaction(program_id, 
         &payee_key, 
         &payer_key, 
         &stream_key, 
         amount, 
-        &payer, 
-        recent_blockhash
+        &ctx.payer, 
+        ctx.last_blockhash
     );
     
-    banks_client.process_transaction(transaction).await.unwrap();
+    ctx.banks_client.process_transaction(transaction).await.unwrap();
+
+    // TODO work out what a slot is in seconds... or maybe just do payments in slots as unit rather
+    // than seconds.  So the client would calculate this from seconds to slots.
+    // SLOT_MS
+    // Go forward 10 seconds
+    ctx.warp_to_slot((10_f64 / DEFAULT_S_PER_SLOT) as u64).unwrap();
 
     let transaction = withdrawal_stream_transaction(
         program_id, 
         &stream_key, 
         &payee_key, 
-        &payer, 
+        &ctx.payer, 
         amount / 2, 
-        recent_blockhash
+        ctx.last_blockhash
     );
 
-    banks_client.process_transaction(transaction).await.unwrap();
+    ctx.banks_client.process_transaction(transaction).await.unwrap();
 
-    let stream = get_stream_account(&mut banks_client, &stream_key).await;
-    assert_eq!(stream.amount, amount / 2);
+    let stream = get_stream_account(&mut ctx.banks_client, &stream_key).await;
+    assert_eq!(stream.remaining_lamports, amount / 2);
 }
