@@ -3,11 +3,9 @@ use solana_program::{
     account_info::{next_account_info, AccountInfo},
     entrypoint::ProgramResult,
     msg,
-    program::invoke,
     program_error::ProgramError,
     program_pack::IsInitialized,
     pubkey::Pubkey,
-    system_instruction,
     sysvar::{rent::Rent, Sysvar},
 };
 

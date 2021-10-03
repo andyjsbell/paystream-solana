@@ -1,7 +1,6 @@
 use paystream::entrypoint::process_instruction;
 use borsh::BorshDeserialize;
 use solana_program_test::*;
-use solana_sdk::keyed_account::KeyedAccount;
 use solana_sdk::{
     account::Account,
     instruction::Instruction,
