@@ -1,0 +1,24 @@
+[package]
+name = "solana-paystream"
+description = "Stream payments"
+version = "0.1.0"
+license = "Apache-2.0"
+authors = ["Andy Bell <andy.bell@barkingmad.io>"]
+edition = "2018"
+
+[features]
+exclude_entrypoint = []
+
+[dependencies]
+solana-program = "=1.7.11"
+thiserror = "1.0.25"
+borsh = "0.9.0" 
+borsh-derive = "0.9.0" 
+
+[dev-dependencies]
+solana-program-test = "=1.7.11"
+solana-sdk = "=1.7.11"
+
+[lib]
+name = "paystream"
+crate-type = ["cdylib", "lib"]
