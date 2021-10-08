@@ -29,14 +29,14 @@ impl Processor {
                 payee_pubkey,
                 payer_pubkey,
                 amount,
-                duration_in_seconds,
+                duration_in_slots,
             } => Self::create_stream(
                 accounts,
                 program_id,
                 payee_pubkey,
                 payer_pubkey,
                 amount,
-                duration_in_seconds,
+                duration_in_slots,
             ),
             PaystreamInstruction::Withdrawal { amount } => {
                 Self::withdraw(accounts, program_id, amount)

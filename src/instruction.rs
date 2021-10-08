@@ -16,7 +16,7 @@ pub enum PaystreamInstruction {
         payee_pubkey: Pubkey,
         payer_pubkey: Pubkey,
         amount: u64,
-        duration_in_seconds: u64,
+        duration_in_slots: u64,
     },
 
     /// Withdraw amount from stream
@@ -45,13 +45,13 @@ impl PaystreamInstruction {
                 let payee_pubkey: Pubkey = Pubkey::new(&rest[..32]);
                 let payer_pubkey: Pubkey = Pubkey::new(&rest[32..64]);
                 let amount: u64 = Self::unpack_u64(&rest, 64)?;
-                let duration_in_seconds: u64 = Self::unpack_u64(&rest, 72)?;
+                let duration_in_slots: u64 = Self::unpack_u64(&rest, 72)?;
                 
                 Self::Create {
                     payee_pubkey,
                     payer_pubkey,
                     amount,
-                    duration_in_seconds,
+                    duration_in_slots,
                 }
             }
             1 => {

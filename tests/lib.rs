@@ -90,6 +90,7 @@ fn create_stream_transaction(program_id: Pubkey,
     payer_key: &Keypair, 
     stream_key: &Keypair, 
     amount: u64, 
+    duration_in_slots: u64,
     payer: &Keypair, 
     recent_blockhash: Hash
 ) -> Transaction {
@@ -100,7 +101,7 @@ fn create_stream_transaction(program_id: Pubkey,
             payee_pubkey: payee_key.pubkey(),
             payer_pubkey: payer_key.pubkey(),
             amount,
-            duration_in_seconds: 60,
+            duration_in_slots,
         },
         stream_key.pubkey(),
     ).unwrap();
@@ -170,6 +171,7 @@ async fn should_cancel_stream() {
     let (program_id, mut program_test, payer_key, payee_key) = create_program_test();
     let stream_key = Keypair::new();
     let amount = 1000;
+    let duration = 10;
     add_stream_account(program_id, &mut program_test, &stream_key, amount);
    
     let (mut banks_client, payer, recent_blockhash) = program_test.start().await;
@@ -178,7 +180,8 @@ async fn should_cancel_stream() {
         &payee_key, 
         &payer_key, 
         &stream_key, 
-        amount, 
+        amount,
+        duration,
         &payer, 
         recent_blockhash
     );
@@ -205,6 +208,7 @@ async fn should_create_stream() {
     
     let stream_key = Keypair::new();
     let amount = 1000;
+    let duration = 10;
     add_stream_account(program_id, &mut program_test, &stream_key, amount);
     
     let (mut banks_client, payer, recent_blockhash) = program_test.start().await;
@@ -213,7 +217,8 @@ async fn should_create_stream() {
         &payee_key, 
         &payer_key, 
         &stream_key, 
-        amount, 
+        amount,
+        duration,
         &payer, 
         recent_blockhash
     );
@@ -231,24 +236,24 @@ async fn should_withdrawal_from_stream() {
 
     let stream_key = Keypair::new();
     let amount = 1000;
+    let duration = 10;
     add_stream_account(program_id, &mut program_test, &stream_key, amount);
     
     let mut ctx = program_test.start_with_context().await;
-
-    // let (mut banks_client, payer, recent_blockhash) = program_test.start().await;
 
     let transaction = create_stream_transaction(program_id, 
         &payee_key, 
         &payer_key, 
         &stream_key, 
         amount, 
+        duration,
         &ctx.payer, 
         ctx.last_blockhash
     );
     
     ctx.banks_client.process_transaction(transaction).await.unwrap();
 
-    let slots_to_warp = 10u64;
+    let slots_to_warp = duration / 2;
     ctx.warp_to_slot(slots_to_warp).unwrap();
 
     let transaction = withdrawal_stream_transaction(
