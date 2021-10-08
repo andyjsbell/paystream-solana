@@ -12,8 +12,8 @@ pub struct StreamAccount {
     pub payer_pubkey: Pubkey,
     pub amount_in_lamports: u64,
     pub remaining_lamports: u64,
-    pub duration_in_seconds: u64,
-    pub start_timestamp_in_seconds: u64,
+    pub duration_in_slots: u64,
+    pub start_timestamp_in_slots: u64,
 }
 
 impl Sealed for StreamAccount {}

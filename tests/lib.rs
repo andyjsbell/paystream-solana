@@ -1,6 +1,5 @@
 use paystream::entrypoint::process_instruction;
 use borsh::BorshDeserialize;
-use solana_program::clock::{SLOT_MS, DEFAULT_S_PER_SLOT};
 use solana_program_test::*;
 use solana_sdk::{
     account::Account,
@@ -249,11 +248,8 @@ async fn should_withdrawal_from_stream() {
     
     ctx.banks_client.process_transaction(transaction).await.unwrap();
 
-    // TODO work out what a slot is in seconds... or maybe just do payments in slots as unit rather
-    // than seconds.  So the client would calculate this from seconds to slots.
-    // SLOT_MS
-    // Go forward 10 seconds
-    ctx.warp_to_slot((10_f64 / DEFAULT_S_PER_SLOT) as u64).unwrap();
+    let slots_to_warp = 10u64;
+    ctx.warp_to_slot(slots_to_warp).unwrap();
 
     let transaction = withdrawal_stream_transaction(
         program_id, 

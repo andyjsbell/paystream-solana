@@ -51,7 +51,7 @@ impl Processor {
         payee_pubkey: Pubkey,
         payer_pubkey: Pubkey,
         amount: u64,
-        duration_in_seconds: u64,
+        duration_in_slots: u64,
     ) -> ProgramResult {
         let accounts_iter = &mut accounts.iter();
 
@@ -109,8 +109,8 @@ impl Processor {
         stream_data.payer_pubkey = payer_pubkey;
         stream_data.amount_in_lamports = amount;
         stream_data.remaining_lamports = amount;
-        stream_data.start_timestamp_in_seconds = clock.unix_timestamp as u64;
-        stream_data.duration_in_seconds = duration_in_seconds;
+        stream_data.start_timestamp_in_slots = clock.slot;
+        stream_data.duration_in_slots = duration_in_slots;
 
         stream_data
             .serialize(&mut *stream_account.data.borrow_mut())?;
@@ -162,9 +162,9 @@ impl Processor {
 
         // Calculate what *can* be withdrawn
         // TODO Check that this won't panic on 0
-        let lamport_per_second = stream_data.amount_in_lamports / stream_data.duration_in_seconds;
+        let lamport_per_second = stream_data.amount_in_lamports / stream_data.duration_in_slots;
         // How much time has passed
-        let time_passed = clock.unix_timestamp as u64 - stream_data.start_timestamp_in_seconds;
+        let time_passed = clock.slot - stream_data.start_timestamp_in_slots;
         msg!("[Paystream] {} seconds have passed", time_passed);
         // TODO Check that this won't overflow
         let maximum_amount = lamport_per_second * time_passed;
